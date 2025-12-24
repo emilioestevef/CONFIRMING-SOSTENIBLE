@@ -1,0 +1,148 @@
+import { useState } from 'react';
+import { Header } from '@/components/layout/Header';
+import { LoginForm } from '@/components/auth/LoginForm';
+import { ConfirmingList } from '@/components/confirming/ConfirmingList';
+import { ConfirmingDetail } from '@/components/confirming/ConfirmingDetail';
+import { NewConfirmingForm, NewConfirmingData } from '@/components/confirming/NewConfirmingForm';
+import { AddSupplierForm, NewSupplierData } from '@/components/confirming/AddSupplierForm';
+import { SupplierDetail } from '@/components/confirming/SupplierDetail';
+import { ESGQuestionnaire } from '@/components/confirming/ESGQuestionnaire';
+import { DashboardView } from '@/components/dashboard/DashboardView';
+import { mockConfirmings, mockDashboardMetrics } from '@/data/mockData';
+import { Confirming, Supplier } from '@/types/confirming';
+import { useToast } from '@/hooks/use-toast';
+
+type View = 'login' | 'list' | 'detail' | 'dashboard' | 'new' | 'addSupplier' | 'supplierDetail' | 'questionnaire';
+
+const Index = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [currentView, setCurrentView] = useState<View>('login');
+  const [selectedConfirming, setSelectedConfirming] = useState<Confirming | null>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [confirmings, setConfirmings] = useState(mockConfirmings);
+  const { toast } = useToast();
+
+  const handleLogin = (email: string, _password: string) => {
+    setIsLoggedIn(true);
+    setUserName(email.split('@')[0]);
+    setCurrentView('list');
+    toast({ title: "Bienvenido", description: "Has iniciado sesión correctamente" });
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUserName('');
+    setCurrentView('login');
+    setSelectedConfirming(null);
+    setSelectedSupplier(null);
+  };
+
+  const handleSelectConfirming = (confirming: Confirming) => {
+    setSelectedConfirming(confirming);
+    setCurrentView('detail');
+  };
+
+  const handleBack = () => {
+    if (currentView === 'questionnaire' || currentView === 'supplierDetail') {
+      setSelectedSupplier(null);
+      setCurrentView('detail');
+    } else if (currentView === 'addSupplier') {
+      setCurrentView('detail');
+    } else {
+      setSelectedConfirming(null);
+      setCurrentView('list');
+    }
+  };
+
+  const handleNewConfirming = () => setCurrentView('new');
+
+  const handleSaveConfirming = (data: NewConfirmingData) => {
+    const newConfirming: Confirming = {
+      id: `${confirmings.length + 1}`,
+      contractId: `CONF-2024-${String(confirmings.length + 1).padStart(3, '0')}`,
+      contractDate: new Date().toISOString().split('T')[0],
+      clientName: data.clientName,
+      clientId: `CLI-${String(confirmings.length + 1).padStart(3, '0')}`,
+      clientCif: data.clientCif,
+      clientAddress: data.clientAddress,
+      nace: data.nace,
+      sector: data.sector,
+      amount: data.amount,
+      currency: data.currency,
+      country: data.country,
+      expirationDate: data.expirationDate,
+      status: 'active',
+      isESG: data.isESG,
+      esgType: data.esgType,
+      useOfFunds: data.useOfFunds,
+      suppliers: [],
+      responsibleManager: data.responsibleManager
+    };
+    setConfirmings([...confirmings, newConfirming]);
+    setCurrentView('list');
+  };
+
+  const handleAddSupplier = () => setCurrentView('addSupplier');
+
+  const handleSaveSupplier = (data: NewSupplierData) => {
+    if (!selectedConfirming) return;
+    const newSupplier: Supplier = {
+      id: `SUP-${Date.now()}`,
+      name: data.name,
+      cif: data.cif,
+      nace: data.nace,
+      sector: data.sector,
+      segment: data.segment,
+      address: data.address,
+      country: data.country,
+      amount: data.amount,
+      currency: data.currency,
+      paymentDate: data.paymentDate,
+      esgQuestionnaire: data.esgQuestionnaire,
+      esgRatingProvider: data.esgRatingProvider,
+      esgRating: 'pending',
+      invoices: []
+    };
+    const updated = confirmings.map(c => 
+      c.id === selectedConfirming.id ? { ...c, suppliers: [...c.suppliers, newSupplier] } : c
+    );
+    setConfirmings(updated);
+    setSelectedConfirming({ ...selectedConfirming, suppliers: [...selectedConfirming.suppliers, newSupplier] });
+    setCurrentView('detail');
+  };
+
+  const handleSelectSupplier = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setCurrentView('supplierDetail');
+  };
+
+  const handleOpenQuestionnaire = () => setCurrentView('questionnaire');
+
+  const handleSaveQuestionnaire = (answers: Record<string, string>, score: number) => {
+    if (!selectedSupplier || !selectedConfirming) return;
+    const rating = score >= 70 ? 'leader' : score >= 40 ? 'average' : 'low';
+    const updatedSupplier = { ...selectedSupplier, esgScore: score, esgRating: rating as Supplier['esgRating'] };
+    setSelectedSupplier(updatedSupplier);
+    setCurrentView('supplierDetail');
+  };
+
+  if (!isLoggedIn) return <LoginForm onLogin={handleLogin} />;
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header userName={userName} onLogout={handleLogout} onDashboardClick={() => setCurrentView('dashboard')} showDashboard={currentView !== 'dashboard'} />
+      <main className="container px-4 md:px-8 py-8">
+        {currentView === 'list' && <ConfirmingList confirmings={confirmings} onSelectConfirming={handleSelectConfirming} onNewConfirming={handleNewConfirming} />}
+        {currentView === 'detail' && selectedConfirming && <ConfirmingDetail confirming={selectedConfirming} onBack={handleBack} onAddSupplier={handleAddSupplier} onSelectSupplier={handleSelectSupplier} />}
+        {currentView === 'new' && <NewConfirmingForm onBack={handleBack} onSave={handleSaveConfirming} />}
+        {currentView === 'addSupplier' && selectedConfirming && <AddSupplierForm confirmingId={selectedConfirming.id} showESG={selectedConfirming.esgType === 'supplier_performance'} onBack={handleBack} onSave={handleSaveSupplier} />}
+        {currentView === 'supplierDetail' && selectedSupplier && selectedConfirming && <SupplierDetail supplier={selectedSupplier} confirmingClientName={selectedConfirming.clientName} showESG={selectedConfirming.esgType === 'supplier_performance'} onBack={handleBack} onOpenQuestionnaire={handleOpenQuestionnaire} />}
+        {currentView === 'questionnaire' && selectedSupplier && <ESGQuestionnaire supplier={selectedSupplier} onBack={handleBack} onSave={handleSaveQuestionnaire} />}
+        {currentView === 'dashboard' && <DashboardView metrics={mockDashboardMetrics} onBack={handleBack} />}
+      </main>
+    </div>
+  );
+};
+
+export default Index;
