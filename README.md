@@ -1,6 +1,6 @@
-Sub ActualizarStatusProject()
+Sub ActualizarStatusProject_V2()
     ' ==========================================
-    ' CONFIGURACIÓN (REVISA ESTO SI FALLA)
+    ' CONFIGURACIÓN
     ' ==========================================
     Dim strRutaExcel As String
     Dim nombreHoja As String
@@ -8,18 +8,18 @@ Sub ActualizarStatusProject()
     Dim i As Integer
     Dim filaInicial As Integer
     
-    ' CORRECCIÓN: He corregido "Docuemnts" a "Documents" en la ruta.
-    ' Si tu carpeta realmente se llama "Docuemnts" (con error), cámbialo abajo.
+    ' Ruta del archivo (He mantenido la corrección de 'Docuemnts' a 'Documents')
     strRutaExcel = "C:\users\x373176\Documents\Emilio\2026_ONB_Follow Up.xlsx"
     
-    ' Nombre exacto de la pestaña del Excel (según tu captura de pantalla)
-    nombreHoja = "1_GENERAL_STATUS_GLOBAL" 
+    ' Nombre de la pestaña
+    nombreHoja = "1_GENERAL_STATUS_GLOBAL"
     
-    ' Columna donde está el texto (B es la columna 2)
-    columnaDatos = "B" 
+    ' CAMBIO REALIZADO: Ahora apunta a la columna C
+    columnaDatos = "C"
     
-    ' La fila donde empieza el primer dato (Epic #1)
-    filaInicial = 2 
+    ' CAMBIO REALIZADO: Fila 3 (porque la 2 suelen ser encabezados en tu imagen)
+    ' Si ves que se salta el primero, cámbialo a 2.
+    filaInicial = 3
     
     ' ==========================================
     ' VARIABLES DEL SISTEMA
@@ -32,22 +32,22 @@ Sub ActualizarStatusProject()
     Dim datoExcel As String
     Dim nombreForma As String
     
-    ' Comprobamos si el archivo existe antes de empezar
+    ' Verificación de seguridad de archivo
     If Dir(strRutaExcel) = "" Then
-        MsgBox "No encuentro el archivo Excel en la ruta: " & vbCrLf & strRutaExcel, vbCritical
+        MsgBox "No encuentro el archivo. Verifica que la ruta y el nombre sean exactos:" & vbCrLf & strRutaExcel, vbCritical
         Exit Sub
     End If
 
     On Error Resume Next
     
-    ' Abrir Excel en modo invisible (silencioso)
+    ' Abrir Excel (Invisible)
     Set xlApp = CreateObject("Excel.Application")
     xlApp.Visible = False
-    Set xlBook = xlApp.Workbooks.Open(strRutaExcel, ReadOnly:=True) ' Solo lectura para no bloquear
+    Set xlBook = xlApp.Workbooks.Open(strRutaExcel, ReadOnly:=True)
     Set xlSheet = xlBook.Sheets(nombreHoja)
     
     If Err.Number <> 0 Then
-        MsgBox "Error al abrir el Excel. Verifica el nombre de la hoja.", vbCritical
+        MsgBox "Error al abrir Excel. ¿La pestaña '" & nombreHoja & "' existe?", vbCritical
         xlBook.Close False
         xlApp.Quit
         Exit Sub
@@ -55,50 +55,48 @@ Sub ActualizarStatusProject()
     On Error GoTo 0
 
     ' ==========================================
-    ' EL BUCLE MAGICO (Actualiza las slides)
+    ' BUCLE DE ACTUALIZACIÓN
     ' ==========================================
     
-    ' Definimos en qué diapositiva estamos trabajando (Diapositiva Actual)
-    ' Si siempre es la diapositiva 3, cambia ActiveWindow.View.Slide por ActivePresentation.Slides(3)
+    ' Define la diapositiva actual (la que tengas en pantalla al ejecutar)
     Set sld = ActiveWindow.View.Slide
     
-    ' Iteramos 12 veces (para los 12 Epics)
+    ' Iteramos 12 veces (Epic 1 al 12)
     For i = 1 To 12
-        ' Construimos el nombre de la forma: Epic_Desc_1, Epic_Desc_2...
+        ' Nombre de la forma en PPT: Epic_Desc_1, Epic_Desc_2...
         nombreForma = "Epic_Desc_" & i
         
-        ' Obtenemos el dato de Excel
-        ' Fila = filaInicial + (i - 1). 
-        ' Ej: i=1 -> Fila 2. i=2 -> Fila 3.
+        ' Dato de Excel: Columna C, Fila variable
+        ' Fila = 3 + (0) = 3 para el primero
+        ' Fila = 3 + (1) = 4 para el segundo...
         datoExcel = xlSheet.Range(columnaDatos & (filaInicial + (i - 1))).Value
         
-        ' Buscamos la forma en la slide y actualizamos
+        ' Buscar y reemplazar
         On Error Resume Next
         Set shp = sld.Shapes(nombreForma)
         
         If Not shp Is Nothing Then
-            ' Actualizamos SOLO el texto, manteniendo el formato (color, fuente, tamaño)
+            ' Inyectar texto manteniendo formato
             shp.TextFrame.TextRange.Text = datoExcel
         Else
-            Debug.Print "No encontré la forma: " & nombreForma
+            ' Si no encuentra la forma, lo avisa en la ventana "Inmediato" (Ctrl+G)
+            Debug.Print "No encuentro la forma: " & nombreForma
         End If
         On Error GoTo 0
         
-        ' Reseteamos la variable de la forma para la siguiente vuelta
         Set shp = Nothing
     Next i
 
     ' ==========================================
-    ' LIMPIEZA (Cerrar Excel)
+    ' CERRAR Y LIMPIAR
     ' ==========================================
     xlBook.Close SaveChanges:=False
     xlApp.Quit
     
-    ' Liberar memoria
     Set xlSheet = Nothing
     Set xlBook = Nothing
     Set xlApp = Nothing
     
-    MsgBox "¡Actualización completada con éxito!", vbInformation
+    MsgBox "Datos de la Columna C actualizados correctamente.", vbInformation
 
 End Sub
